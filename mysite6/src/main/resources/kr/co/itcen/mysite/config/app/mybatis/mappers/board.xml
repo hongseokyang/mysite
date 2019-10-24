@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="board">
+	<update id="delete" parameterType="long">
+		<![CDATA[
+		  update board set state_no = (select no from board_state where state = '삭제') where no = #{_parameter }
+		]]>
+	</update>
+
+	<insert id="insertBoard" parameterType="boardvo">
+		<![CDATA[
+		  insert into board 
+		  values(null, #{title }, #{contents }, 0, now(), (select ifnull(max(g_no)+1, 1) from board b), 1, 0, #{userNo }, null)
+		]]>
+	</insert>
+
+	<insert id="insertReply" parameterType="boardvo">
+		<![CDATA[
+		  insert into board 
+		  values(null, #{title }, #{contents }, 0, now(), #{groupNo }, #{orderNo }, #{depth }, #{userNo }, null)
+		]]>
+	</insert>
+
+	<update id="updateReply" parameterType="boardvo">
+		<![CDATA[
+		  update board 
+		  set o_no = #{orderNo }+1
+		  where g_no = #{groupNo } and o_no >= #{orderNo }
+		]]>
+	</update>
+
+	<update id="update" parameterType="boardvo">
+		<![CDATA[
+		  update board 
+		  set title = #{title }, contents = #{contents }, state_no = (select no from board_state where state = '수정') 
+		  where no = #{no }
+		]]>
+	</update>
+
+	<update id="updateHit" parameterType="long">
+		<![CDATA[
+		  update board 
+		  set hit = hit + 1 
+		  where no = #{no }
+		]]>
+	</update>
+
+	<select id="get" parameterType="boardvo" resultType="boardvo">
+		<![CDATA[
+			select b.no as no, b.title as title, b.contents as contents
+			from board b, user u 
+			where b.user_no = u.no 
+			and b.no = #{no }
+			and u.no = #{userNo }
+		]]>
+	</select>
+	
+	<select id="getView" parameterType="long" resultType="boardvo">
+		<![CDATA[
+			select b.no as no, b.title as title, b.contents as contents, b.hit as hit, b.reg_date as regDate
+				 , b.g_no as groupNo, b.o_no as orderNo, b.depth as depth, u.no as userNo, u.name as userName, u.email as userEmail
+				 , (select state from board_state where no = b.state_no) as state 
+			from board b, user u 
+			where b.user_no = u.no 
+			and b.no = #{no }
+		]]>
+	</select>
+	
+	<select id="getListCnt" parameterType="string" resultType="int">
+		<![CDATA[
+			select count(*) 
+			from board
+		]]>
+		<if test="_parameter != '%%' ">
+			<![CDATA[
+			where contents like #{_parameter } or title like #{_parameter }
+			]]>	
+		</if>
+	</select>
+	
+	<select id="getList" parameterType="map" resultType="boardvo">
+		<![CDATA[
+			select b.no as no, b.title as title, b.contents as contents, b.hit as hit, b.reg_date as regDate
+				 , b.g_no as groupNo, b.o_no as orderNo, b.depth as depth, u.no as userNo, u.name as userName, u.email as userEmail
+				 , (select if(state_no=2, '삭제된 글', state) as state  from board_state where no = b.state_no) as state, b.state_no as stateNo
+			from board b
+			join user u
+			on b.user_no = u.no
+		]]>		
+		<if test="kwd != '%%' ">
+			<![CDATA[
+			where contents like #{kwd } or title like #{kwd }
+			]]>	
+		</if>
+		<![CDATA[
+			order by g_no desc, o_no asc
+			limit #{pagination.startIndex }, #{pagination.pageSize }
+		]]>
+	</select>
+	
+</mapper>
